@@ -7,6 +7,8 @@ import scipy.special as special
 import copy as copylib
 from scipy.interpolate import griddata
 import scipy.integrate as integrate
+import matplotlib.pyplot as plt
+from tools import *
 
 def computeVolatilities(nfactors,data,volatilityscalingfactor:float):
         diff_rates = pd.DataFrame(np.diff(data, axis=0),index=data.index[1:],columns=data.columns)
@@ -17,30 +19,33 @@ def computeVolatilities(nfactors,data,volatilityscalingfactor:float):
         princ_eigval = eigval[index_eigval]
         n = princ_comp.shape[0]
         aux1 = np.sqrt(np.vstack([princ_eigval for s in range(n)]))
-        vols = np.multiply(aux1,princ_comp)    
+        vols = np.multiply(aux1,princ_comp)        
         return vols
 
 class HJMFramework:
     volatilityscalingfactor = 250
-    def __init__(self,iforward,mctenors,mctime):
+    def __init__(self,iforward,nfactors):
         self.iforward = iforward
-        self.mc_tenors = mctenors
-        self.mc_time =mctime        
-        self.vols = computeVolatilities(nfactors,\
-                                        data=self.iforward,\
-                                        volatilityscalingfactor=HJMFramework.volatilityscalingfactor)
+        self.iforward.bfill(axis='rows',inplace=True)
+        self.iforward.ffill(axis='rows',inplace=True)
+        self.iforward.dropna(inplace=True)        
         self.nfactors = nfactors
+        self.tenors = np.array(self.iforward.columns)
+        self.tenors.sort()
     
     def __computeVolInterpolation(self):
-        x = np.concatenate(([0],self.tenors))
+        self.vols =  computeVolatilities(nfactors=self.nfactors,\
+                                        data=self.iforward,\
+                                        volatilityscalingfactor=HJMFramework.volatilityscalingfactor)
+       
         self.vol_interpolators = []
-        for n in range(self.nfactors):
+        for n in range(self.vols.shape[1]):
             if n == 0:
                 level = np.mean(np.array(self.vols[:,0]).flatten())
-                aux = [level for _ in range(len(x))]
-                self.vol_interpolators.append(interp1d(x,aux))
+                aux = [level for _ in range(len(self.tenors))]
+                self.vol_interpolators.append(interp1d(self.tenors,aux,kind='linear',fill_value='extrapolate'))
             else:
-                self.vol_interpolators.append(interp1d(x,np.concatenate(([self.vols[0,0]],self.vols[:,0])),'cubic' ))                           
+                self.vol_interpolators.append(interp1d(self.tenors,self.vols[:,0],'cubic',fill_value='extrapolate' ))                           
         
 
     def __mdrift(self,T):
@@ -50,20 +55,21 @@ class HJMFramework:
             I += r
         return I
 
-    def __compute_mc_vols_and_drift(self,mc_steps):
+    def __compute_mc_vols_and_drift(self,mc_tenor_steps):
         self.__computeVolInterpolation()
-        mc_tenors = np.linspace(0,self.tenors[-1],mc_steps)
+        tenors_min = np.min(list(self.iforward.columns))
+        tenors_max = np.max(list(self.iforward.columns))
+        mc_tenors = np.linspace(tenors_min,tenors_max,mc_tenor_steps)
         mc_vols = np.matrix([[f(t) for t in mc_tenors] for f in self.vol_interpolators])
         mc_drift = np.array([self.__mdrift(tau) for tau in  mc_tenors])
 
         spot = self.__get_curve_spot()
-        f = np.concatenate(([spot[0]],spot)) 
-        f_interpolator = interp1d(np.concatenate(([0],self.tenors)) ,f,'cubic')
+        f_interpolator = interp1d(self.tenors ,spot,'cubic')
         mc_forward_curve = np.array([f_interpolator(tau) for tau in  mc_tenors])
         return mc_tenors,mc_vols,mc_drift,mc_forward_curve
    
     def __get_curve_spot(self):
-        return self.data.as_matrix()[-1,:].flatten()
+        return self.iforward.as_matrix()[-1,:].flatten()
 
 
     def __run_forward_dynamics(self,proj_time,mc_tenors,mc_vols,mc_drift,mc_forward_curve):                
@@ -97,7 +103,7 @@ class HJMFramework:
     
     def set_montecarlo_parameters(self,seed,timesteps,t_end_years,ntenors):
         np.random.seed(seed)
-        self.mc_tenors,self.mc_vols,self.mc_drift,self.mc_forward_curve =  self.__compute_mc_vols_and_drift(ntenors)        
+        self.mc_tenors,self.mc_vols,self.mc_drift,self.mc_forward_curve =  self.__compute_mc_vols_and_drift(mc_tenor_steps=ntenors)
         self.mc_time = np.linspace(0,t_end_years,timesteps).flatten()
         
         
@@ -112,7 +118,7 @@ class HJMFramework:
         for i, (t, f) in enumerate(self.__run_forward_dynamics(proj_time,mc_tenors,mc_vols,mc_drift,mc_forward_curve)):
             proj_rates.append(f)
         
-        columns = [str(tn) for tn in mc_tenors]
+        columns = [tn for tn in mc_tenors]
         proj_rates = pd.DataFrame(np.matrix(proj_rates),index=proj_time,columns=columns)
         return proj_rates
 
