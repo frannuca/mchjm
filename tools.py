@@ -3,7 +3,8 @@ from scipy.interpolate import interp1d
 import pandas as pd
 import scipy.integrate as integrate
 import scipy.special as special
-
+import math
+from typing import Dict, Tuple, Sequence
 def tenor2years(tenor):        
         t = tenor[-1]
         y = tenor[:-1]
@@ -59,12 +60,20 @@ class ForwardInterpolator:
         dt = mc_time[nthigh] - mc_time[ntlow]
         dT = mc_tenors[nThigh] - mc_tenors[nTlow]
 
-        tnorm = (t-mc_time[ntlow])/dt
-        if dt == 0:
-            tnorm = 0
-        Tnorm = (T - mc_tenors[nTlow])/dT
+        if np.abs(dt)<1e-9:
+            tnorm = 0.0
+        else:
+            tnorm = (t-mc_time[ntlow])/dt
         
-        return x00*(1-tnorm)*(1-Tnorm)+x10*tnorm*(1-Tnorm)+x01*(1-tnorm)*Tnorm+x11*tnorm*Tnorm
+        if np.abs(dT)<1e-9:
+            Tnorm=0.0
+        else:
+            Tnorm = (T - mc_tenors[nTlow])/dT
+        
+        rr = x00*(1-tnorm)*(1-Tnorm)+x10*tnorm*(1-Tnorm)+x01*(1-tnorm)*Tnorm+x11*tnorm*Tnorm
+        
+
+        return rr
 
 # Print iterations progress
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):

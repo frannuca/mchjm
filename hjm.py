@@ -9,8 +9,10 @@ from scipy.interpolate import griddata
 import scipy.integrate as integrate
 import matplotlib.pyplot as plt
 from tools import *
+from typing import Dict, Tuple, Sequence
 
-def computeVolatilities(nfactors,data,volatilityscalingfactor:float):
+def computeVolatilities(nfactors:int,data:pd.DataFrame,volatilityscalingfactor:float) -> np.matrix:
+    
         diff_rates = pd.DataFrame(np.diff(data, axis=0),index=data.index[1:],columns=data.columns)
         sigma = np.cov(diff_rates.transpose())*volatilityscalingfactor
         eigval, eigvector = np.linalg.eig(sigma)
@@ -40,7 +42,7 @@ class HJMFramework:
        
         self.vol_interpolators = []
         for n in range(self.vols.shape[1]):
-            if n == 0:
+            if False:
                 level = np.mean(np.array(self.vols[:,0]).flatten())
                 aux = [level for _ in range(len(self.tenors))]
                 self.vol_interpolators.append(interp1d(self.tenors,aux,kind='linear',fill_value='extrapolate'))
@@ -127,4 +129,4 @@ class HJMFramework:
         iforward = ForwardInterpolator(self.mc_time,self.mc_tenors,cube.as_matrix())
         ivals = lambda T: iforward.forward(t,T)
         integralval,_ = integrate.quadpack.quad(ivals,0,TenorinYears)
-        return integralval
+        return integralval/TenorinYears

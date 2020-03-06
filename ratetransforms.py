@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 from scipy.misc import derivative
 from scipy.integrate import quad,quadrature
 from tools import *
-
+from typing import Dict, Tuple, Sequence
 def tenornormalizer(x:str):
     x = re.sub('MO','m',x)
     x = re.sub('\s+','',x)
@@ -59,3 +59,6 @@ def integrateForward(t:float, T:float,iforward:pd.DataFrame):
     y = iforward.iloc[0,:]
     f = interp1d(x, y,kind='cubic',assume_sorted=True,fill_value='extrapolate')
     return 1/T*quad(f, 0, T)[0]
+
+def forward(frate,t:float,T:float):
+    return (np.exp(frate(T+t)*(T+t)-frate(t)*t)-1.0)/(T)
