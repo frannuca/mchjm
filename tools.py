@@ -45,7 +45,7 @@ class ForwardInterpolator:
         @params:
            mc_time: time grid as in the input cube index dimension
            mc_tenors: tenors grid as in the input cube columns dimenstion
-          cube: instantaneous forward samples 2D np.array, having rows as time and columns as tenors.
+           cube: instantaneous forward samples 2D np.array, having rows as time and columns as tenors.
         """
         self.mc_time = mc_time
         self.mc_tenors = mc_tenors
