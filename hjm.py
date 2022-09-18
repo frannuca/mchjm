@@ -61,12 +61,12 @@ class HJMFramework:
        
         self.vol_interpolators = []
         for n in range(self.vols.shape[1]):
-            if False:
+            if n==0:
                 level = np.mean(np.array(self.vols[:,0]).flatten())
                 aux = [level for _ in range(len(self.tenors))]
                 self.vol_interpolators.append(interp1d(self.tenors,aux,kind='linear',fill_value='extrapolate'))
             else:
-                self.vol_interpolators.append(interp1d(self.tenors,self.vols[:,0],'cubic',fill_value='extrapolate' ))                           
+                self.vol_interpolators.append(interp1d(self.tenors,self.vols[:,n],'cubic',fill_value='extrapolate' ))                           
         
 
     def __mdrift(self,T):
@@ -98,7 +98,7 @@ class HJMFramework:
         #internal function returning the most recent instantaneous forward curve. Typically use as the first curve in the MC algorithm,
         # that is t=0
 
-        return self.iforward.as_matrix()[-1,:].flatten()
+        return self.iforward.values[-1,:]
 
 
     def __run_forward_dynamics(self,proj_time,mc_tenors,mc_vols,mc_drift,mc_forward_curve):
@@ -170,7 +170,7 @@ class HJMFramework:
         #T: tenors
         # Returns F(t,T)
      
-        iforward = ForwardInterpolator(self.mc_time,self.mc_tenors,cube.as_matrix())
+        iforward = ForwardInterpolator(self.mc_time,self.mc_tenors,np.matrix(cube))
         ivals = lambda T: iforward.forward(t,T)
         integralval,_ = integrate.quadpack.quad(ivals,0,TenorinYears)
         return integralval/TenorinYears

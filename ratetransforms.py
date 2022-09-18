@@ -55,14 +55,14 @@ def transformDiscountToInstantaneousForward(frame:pd.DataFrame):
 
     xnew = np.array(list(map(lambda x:tenor2years(x)[1], frame.columns)))
     xnew.sort()
-    xnew = np.array(list(map(lambda s: np.round(s,decimals=4),xnew)))    
+    xnew = np.array(list(map(lambda s: np.round(s,decimals=9),xnew)))    
     data = np.zeros((frame.shape[0],len(xnew)))
     
     for i in range(frame.shape[0]):
         y = np.log(frame.iloc[i,:].values)
         f = interp1d(xnew, y,kind='cubic',assume_sorted=True,fill_value='extrapolate')
         for j in range(len(xnew)):
-            data[i,j]= -derivative(f, xnew[j],dx=3.0/360)
+            data[i,j]= -derivative(f, xnew[j],dx=1.0/360)
     frame = pd.DataFrame(data=data,columns=xnew,index=frame.index)
     frame.sort_index(inplace=True)
     return frame
